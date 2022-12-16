@@ -1,0 +1,107 @@
+#!/usr/bin/python
+import datetime
+import time
+import os
+import psutil
+
+CONFIG_FILE = '/etc/sys_monitor.conf'
+LOGFILE = '/var/log/cpu_monitor'
+DEFAULT_SAMPLING_PERIOD = 30
+DEFAULT_ACTIVE_CHECKS = ['cpu', 'mem', 'disk']
+DEFAULTS = [DEFAULT_SAMPLING_PERIOD, DEFAULT_ACTIVE_CHECKS]
+sampling_period = ''
+active_checks = []
+
+
+def check_config_file(config_file, constant_configuration):
+    program_configuration = constant_configuration.copy()
+    while True:
+        # If config file is absent, it will be created from the default configuration
+        if not os.path.isfile(config_file):
+            with open(config_file, 'x') as f:
+                sampling = 'SAMPLING_PERIOD=\'' + str(program_configuration[0]) + '\''
+                checks = 'ACTIVE_CHECKS=\'' + ",".join(param for param in program_configuration[1]) + '\''
+                print(sampling, file=f)
+                print(checks, file=f)
+            return program_configuration
+        # Uploads config. If it is only partial, absent part will be uploaded from the default configuration
+        with open(config_file, 'r') as f:
+            config = f.readlines()
+            for line in config:
+                splitted_line = line.split('=')
+                if splitted_line[0] in ['SAMPLING_PERIOD', 'ACTIVE_CHECKS']:
+                    if splitted_line[0].strip('\'\"\n ') == 'SAMPLING_PERIOD':
+                        program_configuration[0] = int(splitted_line[1].strip('\'\"\n '))
+                    if splitted_line[0].strip('\'\"\n ') == 'ACTIVE_CHECKS':
+                        unstripped_list = splitted_line[1].strip('\'\"\n ').split(',')
+                        program_configuration[1] = [item.strip('\'\"\n ') for item in unstripped_list]
+        return program_configuration
+
+
+def check_cpu_usage():
+    cpu_utilization = psutil.cpu_percent(interval=1)
+    return 'CPU: ' + str(cpu_utilization) + '%'
+
+
+def check_memory_usage():
+    mem_usage = psutil.virtual_memory()
+    return 'Memory: ' + str(mem_usage[2]) + '%'
+
+
+def check_disk_usage():
+    return_line = 'Disks:'
+    disks = []
+    disks_partitions = psutil.disk_partitions()
+    for disk in disks_partitions:
+        disks.append(disk[1])
+    for disk in disks:
+        usage_percent = psutil.disk_usage(disk)
+        return_line = return_line + ' [' + str(disk) + ' - ' + str(usage_percent[3]) + '%]'
+    return return_line
+
+
+def create_logfile(logfile):
+    with open(logfile, 'x') as f:
+        pass
+
+
+def save_to_logfile(logfile, logline):
+    with open(logfile, 'a') as f:
+        print(logline, file=f)
+
+
+def main():
+    read_config_counter = 1
+    sampling_counter = 1
+    sampling_period = 1
+
+    while True:
+        # If sampling period is < 5 sec, using it for the config check period, else config file will be read each 5 sec
+        if (read_config_counter >= 5) or ((sampling_period < 5) and (read_config_counter == sampling_period)):
+            read_config_counter = 1
+            sampling_period, active_checks = check_config_file(CONFIG_FILE, DEFAULTS)
+
+        # Checks cpu, mem, disk usage each sampling_period seconds
+        if sampling_counter >= sampling_period:
+            sampling_counter = 1
+            curr_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            logline = str(curr_time)
+            for check in active_checks:
+                if check == 'cpu':
+                    logline = logline + ' ' + check_cpu_usage()
+                if check == 'mem':
+                    logline = logline + ' ' + check_memory_usage()
+                if check == 'disk':
+                    logline = logline + ' ' + check_disk_usage()
+            # If logfile is absent, recreates it
+            if not os.path.isfile(LOGFILE):
+                create_logfile(LOGFILE)
+            save_to_logfile(LOGFILE, logline)
+        time.sleep(1)
+        read_config_counter += 1
+        sampling_counter += 1
+
+
+if __name__ == '__main__':
+    main()
+
