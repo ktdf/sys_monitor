@@ -4,8 +4,8 @@ import time
 import os
 import psutil
 
-CONFIG_FILE = '/etc/sys_monitor.conf'
-LOGFILE = '/var/log/cpu_monitor'
+CONFIG_FILE = 'conf/sys_monitor.conf'
+LOGFILE = 'log/cpu_monitor'
 DEFAULT_SAMPLING_PERIOD = 30
 DEFAULT_ACTIVE_CHECKS = ['cpu', 'mem', 'disk']
 DEFAULTS = [DEFAULT_SAMPLING_PERIOD, DEFAULT_ACTIVE_CHECKS]
