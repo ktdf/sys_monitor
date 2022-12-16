@@ -1,0 +1,8 @@
+[Unit]
+Description = System Monitor service
+
+[Service]
+ExecStart = /usr/local/bin/sys_monitor
+
+[Install]
+WantedBy = multi-user.target 
