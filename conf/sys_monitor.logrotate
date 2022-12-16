@@ -1,0 +1,5 @@
+/var/log/cpu_monitor {
+    rotate 5
+    daily
+    missingok
+}
